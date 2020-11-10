@@ -504,7 +504,7 @@ m_rf.fit(train_x, train_y)
 m_rf.score(test_x, test_y)  
 
 # 변수 중요도
-Series(m_rf.feature_importances_, index = train_x.columns).sort_values(ascending = False)
+s2 = Series(m_rf.feature_importances_, index = train_x.columns).sort_values(ascending = True)
 
 
 # =============================================================================
@@ -575,7 +575,7 @@ std = std.drop(['schoolsup', 'famsup', 'activities', 'nursery'],axis = 1)
 ####################################################################################
 # 교호작용(interaction)
 
-m_poly = poly(6)
+m_poly = poly(4)
 m_poly.fit(train_x)
 train_x_poly = m_poly.transform(train_x)
 test_x_poly  = m_poly.transform(test_x)
@@ -886,7 +886,7 @@ m_rf.fit(train_x_mm, train_y)
 m_rf.score(test_x_mm, test_y)  # 67.68
 
 
-# 교호작용 standard
+# 스캘링 standard
 m_poly = poly(5)
 m_poly.fit(train_x_st)
 train_x_st_poly = m_poly.transform(train_x_st)
@@ -896,7 +896,7 @@ col_poly = m_poly.get_feature_names(array(std.loc[:,std.columns != 'G3'].columns
 
 DataFrame(train_x_st_poly, columns = col_poly)  # G1^2 G2^2                                        0.005363
 
-# 교호작용 minmax
+# 스캘링 minmax
 m_poly = poly(5)
 m_poly.fit(train_x_mm)
 train_x_mm_poly = m_poly.transform(train_x_mm)
@@ -1352,11 +1352,12 @@ vscore_te2 = Series(vscore_te2, index = range(2,101))
 vscore_te2.sort_values(ascending = False)   # n_estimators = 70 일때, 77.2
 
 ####################################################################################
-# 직업 +  inter g2/g1추가 + higher + Pstatus 제외 f/s 
+# 직업 +  inter g2/g1추가 + higher + Pstatus 제외 + goout범주화
 
 # 파일 불러오기
 run profile1
 std = pd.read_csv('student_grade.csv')
+std = std.drop(['higher','Pstatus'],axis = 1)
 std = std.drop(['higher','Pstatus','address','schoolsup','famsize'],axis = 1)
 
 # 아빠는 딸, 엄마는 아들 학력
@@ -1378,6 +1379,15 @@ g2 = list(map(lambda x : x + 1, std.G2))
 std['g2/g1'] = list(map(lambda x, y : x / y, g2, g1))
 std['inter'] = list(map(lambda x, y, z : x * (y**2) * z, std.G1, std.G2, std['g2/g1']))
 
+# goout범주화
+vgo = []
+for i in std.goout :
+    if i <= 3 :
+        vgo.append(0)     
+    else :
+        vgo.append(1)
+
+std.goout = vgo
 
 # 변수 변형
 for i in std.columns.values :
@@ -1417,9 +1427,9 @@ train_x, test_x, train_y, test_y = train_test_split(std.loc[:,std.columns != 'G3
 # random forest 모델 적용
 m_rf = rf(random_state = 0)
 m_rf.fit(train_x, train_y)
-m_rf.score(train_x, train_y)
-m_rf.score(test_x, test_y)  # 78.78
-
+m_rf.score(train_x, train_y)    # 1.0
+m_rf.score(test_x, test_y)      # 78.79
+    
 # 교차검증
 vscore_te2 = []
 for i in range(2, 101) :
@@ -1428,9 +1438,46 @@ for i in range(2, 101) :
     vscore_te2.append(vscore.mean())  
 
 vscore_te2 = Series(vscore_te2, index = range(2,101))
-vscore_te2.sort_values(ascending = False)   # n_estimators = 80 일때, 78.73
+vscore_te2.sort_values(ascending = False)   # n_estimators = 69 일때, 79.24
+
+m_rf = rf(n_estimators = 69, min_samples_split = 2, max_features = 8, random_state = 0)
+
+vscore = cross_val_score(m_rf, std.loc[:,std.columns != 'G3'], std.G3, cv = 5)
+vscore.mean()
+
+####################################################################################
+# 교호작용(interaction)
+
+# famrel G1 G2^2
+m_poly = poly(4)
+m_poly.fit(train_x)
+train_x_poly = m_poly.transform(train_x)
+test_x_poly  = m_poly.transform(test_x)
 
 
+col_poly = m_poly.get_feature_names(array(std.loc[:,std.columns != 'G3'].columns))
+
+DataFrame(train_x_poly, columns = col_poly)
+
+
+# random forest 모델 적용
+m_rf = rf(random_state = 0)
+m_rf.fit(train_x_poly, train_y)
+m_rf.score(test_x_poly, test_y)  # 68.68
+
+
+s1 = Series(m_rf.feature_importances_, index = col_poly).sort_values(ascending = False)[0:10]
+s2 = s1.sort_values(ascending = True)
+import seaborn as sns
+
+plt.barh(s2.index.values, s2,  height=0.5, align='edge', linewidth=2, color = sns.color_palette("rocket_r", 40))
+plt.rc('font', size = 12)
+plt.rc('font',family='Malgun Gothic')  
+plt.xlabel('특성 중요도', fontsize = 15)
+  
+
+
+# G1 G2^2 g2/g1                           0.006895
 ############### 시각화
 # 파일 불러오기
 std = pd.read_csv('student_grade.csv')
@@ -1463,6 +1510,8 @@ for i in std.G3 :
    
 std.G3 = vG3     
 std = std.sort_values('G3')
+std.shape
+std.index = Series(np.arange(0,395))
 std2 = std.groupby('G3').mean().iloc[:,0:28]
 
 std.groupby('G3').mean().loc[:,'absences']
@@ -1471,58 +1520,40 @@ std.groupby('G3').mean().loc[:,'goout']
 std.groupby('G3').mean().loc[:,'Walc']
 std.groupby('G3').mean().loc[:,'Dalc']
 plt.figure()
-std2.plot()
+std.goout.plot(style = '.')
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-m_rf = rf()
+####
+# 그리드
+m_rf = rf(random_state = 0)
 v_params = {'min_samples_split' : np.arange(2,21), 
-            'max_features' : np.arange(1,21),
-            'n_estimators': np.arange(2, 30)}
+            'max_features' : np.arange(1,26),
+            'n_estimators' : np.arange(10,71)}
 
 # 2-2) 그리드 서치 모델 생성
 m_grid = GridSearchCV(m_rf,        # 적용 모델
                       v_params,    # 매개변수 조합(딕셔너리)
                       cv=5)
 
+m_rf = rf(n_estimators = 69, min_samples_split = 2, max_features = 8, random_state = 0)
+vscore = cross_val_score(m_rf, std.loc[:,std.columns != 'G3'], std.G3, cv = 5)
+vscore.mean()
 # 2-3) 그리드 서치에 의한 모델 학습
 m_grid.fit(train_x, train_y)
 
 # 2-4) 결과 확인
-m_grid.best_score_    # 베스트 매개변수 값을 갖는 평가 점수
-m_grid.best_params_   # {'max_features': 1, 'min_samples_split': 8}
+m_grid.best_score_    # 82.11   81.77
+m_grid.best_params_   # {'max_features': 8, 'min_samples_split': 2} 
 
 
 df_result = DataFrame(m_grid.cv_results_)
-df_result.T.iloc[:,0] # 첫 번째 매개변수 셋 결과
 
 # 2-5) 최종 평가
 m_grid.score(test_x, test_y)
 
 # 2-6) 그리드 서치 결과 시각화
 df_result.mean_test_score      # 교차 검증의 결과(5개의 점수에 대한 평균)
-arr_score = np.array(df_result.mean_test_score).reshape(30, 9)
+arr_score = np.array(df_result.mean_test_score).reshape(25, 19)
 
 import mglearn
 plt.rc('figure', figsize=(10,10))
@@ -1534,28 +1565,4 @@ mglearn.tools.heatmap(arr_score,                      # 숫자 배열
                       v_params['min_samples_split'],  # x축 눈금
                       v_params['max_features'],       # y축 눈금
                       cmap='viridis')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
