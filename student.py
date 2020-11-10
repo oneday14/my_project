@@ -1374,9 +1374,10 @@ std['according_gender'] = v_according_gender
 std = std.drop(['sex','Medu','Fedu'],axis = 1)
 
 # g2/g1 
-g1 = list(map(lambda x : x + 1, std.G1))
-g2 = list(map(lambda x : x + 1, std.G2))
+g1 = list(map(lambda x : x + 1, std.G1))    # 분모가 0이 되는 것을 방지
+g2 = list(map(lambda x : x + 1, std.G2))    # 나눈 값이 0이 되는 것을 방지
 std['g2/g1'] = list(map(lambda x, y : x / y, g2, g1))
+
 std['inter'] = list(map(lambda x, y, z : x * (y**2) * z, std.G1, std.G2, std['g2/g1']))
 
 # goout범주화
@@ -1509,7 +1510,7 @@ for i in std.G3 :
         vG3.append('G')
    
 std.G3 = vG3     
-std = std.sort_values('G3')
+std = std.sort_values('G3', ascending = False)
 std.shape
 std.index = Series(np.arange(0,395))
 std2 = std.groupby('G3').mean().iloc[:,0:28]
