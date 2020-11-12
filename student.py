@@ -670,6 +670,7 @@ g1 = list(map(lambda x : x + 1, std.G1))
 g2 = list(map(lambda x : x + 1, std.G2))
 std['g2/g1'] = list(map(lambda x, y : x / y, g2, g1))
 
+std = std.drop('absences', axis = 1)
 # 변수 변형
 for i in std.columns.values :
     if str(std.loc[0,i]).isnumeric() :
@@ -1432,14 +1433,14 @@ m_rf.score(train_x, train_y)    # 1.0
 m_rf.score(test_x, test_y)      # 78.79
     
 # 교차검증
-vscore_te2 = []
+vscore_test = []
 for i in range(2, 101) :
     m_rf = rf(n_estimators = i, random_state = 0)
     vscore = cross_val_score(m_rf, std.loc[:,std.columns != 'G3'], std.G3, cv = 5)
-    vscore_te2.append(vscore.mean())  
+    vscore_test.append(vscore.mean())  
 
-vscore_te2 = Series(vscore_te2, index = range(2,101))
-vscore_te2.sort_values(ascending = False)   # n_estimators = 69 일때, 79.24
+vscore_test = Series(vscore_test, index = range(2,101))
+vscore_test.sort_values(ascending = False)   # n_estimators = 69 일때, 79.24
 
 m_rf = rf(n_estimators = 69, min_samples_split = 2, max_features = 8, random_state = 0)
 
@@ -1526,10 +1527,9 @@ std.goout.plot(style = '.')
 
 ####
 # 그리드
-m_rf = rf(random_state = 0)
+m_rf = rf(random_state = 0, n_estimators = 69)
 v_params = {'min_samples_split' : np.arange(2,21), 
-            'max_features' : np.arange(1,26),
-            'n_estimators' : np.arange(10,71)}
+            'max_features' : np.arange(1,26)}
 
 # 2-2) 그리드 서치 모델 생성
 m_grid = GridSearchCV(m_rf,        # 적용 모델
@@ -1543,8 +1543,8 @@ vscore.mean()
 m_grid.fit(train_x, train_y)
 
 # 2-4) 결과 확인
-m_grid.best_score_    # 82.11   81.77
-m_grid.best_params_   # {'max_features': 8, 'min_samples_split': 2} 
+m_grid.best_score_                                # 82.11   81.77
+m_grid.best_params_                               # {'max_features': 8, 'min_samples_split': 2} 
 
 
 df_result = DataFrame(m_grid.cv_results_)
