@@ -284,4 +284,3 @@ m_gird.fit(train_x, train_y)
 m_gird.best_params_  # {'alpha': 0.01, 'l1_ratio': 1}
 m_gird.best_score_  # 0.9460333058258209
 m_gird.score(test_x, test_y)  # 0.9481553966656311
-
